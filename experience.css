@@ -1,0 +1,38 @@
+.record-guide {
+  background: #eef4f0;
+  border: 1px solid #d3e1d8;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  padding: 14px 16px;
+}
+.record-guide strong, .record-guide span, .record-guide small { display: block; }
+.record-guide strong { font-size: 14px; }
+.record-guide span { color: #5f7267; font-size: 12px; line-height: 1.7; margin-top: 5px; }
+.record-guide small { color: #627568; font-size: 11px; margin-top: 7px; }
+.quality { background: #d5e0d9; border-radius: 3px; height: 5px; margin-top: 12px; overflow: hidden; }
+.quality i { background: #2e7459; display: block; height: 100%; transition: width .25s; width: 0; }
+.track-feature { align-items: center; background: white; border: 1px solid #cbdad1; border-radius: 6px; display: flex; gap: 13px; padding: 12px; }
+.track-feature strong { display: block; font-size: 15px; }
+.track-feature small { color: #6d7c73; display: block; font-size: 12px; margin-top: 4px; }
+.icon-button { background: #225f50; border-radius: 50%; color: white; flex-shrink: 0; height: 42px; margin-left: auto; padding: 0; width: 42px; }
+.icon-button:hover:not(:disabled) { background: #174b3e; color: white; }
+.lyrics { color: #5d7065; font-size: 13px; margin: 10px 2px 0; }
+.preference { align-items: center; display: flex; gap: 15px; justify-content: space-between; margin: 12px 0; }
+.preference > span { font-size: 14px; }
+.choice { display: flex; }
+.choice button { border-radius: 0; font-size: 12px; margin-left: -1px; padding: 7px 11px; }
+.choice button:first-child { border-radius: 5px 0 0 5px; }
+.choice button:last-child { border-radius: 0 5px 5px 0; }
+.choice button.active { background: #dfece4; border-color: #79a189; color: #174f3d; position: relative; }
+body { overflow-x: hidden; }
+.inputs, .result, .step, .record-guide, .track-feature { min-width: 0; }
+@media (max-width: 430px) {
+  main { max-width: 100%; overflow: hidden; }
+  nav { min-width: 0; overflow: hidden; }
+  nav button { min-width: 0; padding-left: 5px; padding-right: 5px; }
+  .record-guide span { overflow-wrap: anywhere; }
+  .preference { align-items: flex-start; flex-direction: column; }
+  .choice { width: 100%; }
+  .choice button { flex: 1; }
+  .track-feature small { max-width: 165px; }
+}

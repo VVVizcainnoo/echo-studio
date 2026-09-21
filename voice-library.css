@@ -1,0 +1,18 @@
+.voice-library { max-width: 1000px; margin: auto; }
+.library-toolbar { align-items: center; border-bottom: 1px solid #dce3df; border-top: 1px solid #dce3df; display: flex; gap: 25px; margin: 24px 0; padding: 22px 0; }
+.library-toolbar p { color: #647568; font-size: 13px; margin: 0; }
+.voice-upload { background: #225f50; border-radius: 6px; color: white; cursor: pointer; flex: 0 0 210px; padding: 13px 16px; position: relative; }
+.voice-upload strong, .voice-upload span { display: block; }
+.voice-upload span { font-size: 11px; margin-top: 4px; opacity: .78; }
+.voice-upload input { inset: 0; opacity: 0; position: absolute; width: 100%; }
+.voice-list { display: grid; gap: 10px; }
+.voice-card { align-items: center; background: white; border: 1px solid #d5dfd9; border-radius: 7px; display: grid; gap: 14px; grid-template-columns: 42px minmax(0,1fr) auto 36px; padding: 13px; }
+.voice-card.selected { background: #edf4ef; border-color: #5f8c72; }
+.voice-play { background: #e3eee7; border: 0; border-radius: 50%; color: #205e4d; height: 42px; padding: 0; width: 42px; }
+.voice-name { background: transparent; border: 0; color: #202b29; display: block; font-weight: 650; padding: 3px 0; width: 100%; }
+.voice-card small { color: #718074; display: block; font-size: 11px; margin-top: 3px; }
+.voice-select { font-size: 12px; padding: 8px 12px; }
+.voice-card.selected .voice-select { background: #225f50; color: white; }
+.voice-delete { border: 0; color: #8b5048; font-size: 20px; padding: 5px; }
+.library-empty { color: #718074; padding: 50px 0; text-align: center; }
+@media(max-width:600px){.library-toolbar{align-items:stretch;flex-direction:column}.voice-upload{flex-basis:auto}.voice-card{grid-template-columns:42px minmax(0,1fr) 34px}.voice-select{grid-column:2 / 4}.voice-delete{grid-column:3;grid-row:1}}

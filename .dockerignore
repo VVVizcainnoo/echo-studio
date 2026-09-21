@@ -1,0 +1,8 @@
+.git
+test
+tools
+*.ncm
+*.mp4
+Go Beyond Andy*.mp3
+__pycache__
+*.pyc

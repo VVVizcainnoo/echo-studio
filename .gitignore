@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+test/*-profile/
+test/*.png
+b1ba7af67980c006406d0ddaf0299e47.mp4
+Go Beyond Andy（荣耀全球品牌主题曲）.mp3
+.env
