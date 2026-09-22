@@ -21,7 +21,18 @@ $('#generate').textContent = '生成我的音色版本';
 $('#time').textContent = '00:00 / 00:22';
 $('#result-note').textContent = '试听待生成片段，再录制你的声音。';
 $('.notice').textContent = '音色保存在当前浏览器；点击生成后，所选音色会临时发送到合成服务，服务缓存最多保留约 1 小时。请只使用本人或已获授权的声音。';
-document.querySelectorAll('.preference').forEach(element => element.hidden = true);
+document.querySelectorAll('.preference').forEach(element => {
+  element.hidden = false;
+  const status = document.createElement('small');
+  status.textContent = '暂未支持';
+  element.append(status);
+  element.querySelectorAll('button').forEach(button => {
+    button.dataset.unavailable = 'true';
+    button.disabled = true;
+    button.classList.remove('active');
+    button.title = '当前模型保留原片段唱法，暂不支持单独调整';
+  });
+});
 $('#sample').hidden = true;
 $('.heading .pill').textContent = '个人音色 · 云端合成';
 $('.agent .section-title > span').textContent = '制作进度';
@@ -127,7 +138,7 @@ $('#generate').insertAdjacentElement('afterend', waiting);
 let waitTimer;
 function lock(value) {
   busy = value; window.echoIsGenerating = value;
-  document.querySelectorAll('.inputs button,.inputs input,.voice-select').forEach(element => element.disabled = value);
+  document.querySelectorAll('.inputs button,.inputs input,.voice-select').forEach(element => element.disabled = value || element.dataset.unavailable === 'true');
   $('#cancel').hidden = !value; $('#retry').disabled = value;
   waiting.hidden = !value; clearInterval(waitTimer);
   if (value) {
