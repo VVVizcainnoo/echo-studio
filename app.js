@@ -22,7 +22,7 @@ $('#time').textContent = '00:00 / 00:22';
 $('#result-note').textContent = '试听待生成片段，再录制你的声音。';
 $('.notice').textContent = '音色保存在当前浏览器；点击生成后，所选音色会临时发送到合成服务，服务缓存最多保留约 1 小时。请只使用本人或已获授权的声音。';
 document.querySelectorAll('.preference').forEach(element => {
-  element.hidden = false;
+  element.hidden = true;
   const status = document.createElement('small');
   status.textContent = '暂未支持';
   element.append(status);
