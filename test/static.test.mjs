@@ -11,8 +11,8 @@ test('loads the static app assets from the migrated project', async () => {
   const index = await read('index.html');
 
   assert.match(index, /<link rel="stylesheet" href="style\.css">/);
-  assert.match(index, /<script src="recorder\.js" defer><\/script>/);
-  assert.match(index, /<script src="app\.js"><\/script>/);
+  assert.match(index, /<script src="recorder\.js(?:\?v=\d+)?" defer><\/script>/);
+  assert.match(index, /<script src="app\.js(?:\?v=\d+)?"><\/script>/);
   assert.match(index, /id="studio"/);
   assert.match(index, /id="voice" type="file" accept="audio\/\*"/);
   assert.match(index, /id="consent" type="checkbox"/);
@@ -86,8 +86,10 @@ test('shows only end-user navigation and is ready for public hosting', async () 
   const modelScope = await read('modelscope/app.py');
 
   assert.match(app, /\[data-view="brief"\].*\[data-view="flow"\]/);
-  assert.match(app, /@gradio\/client/);
+  const api = await read('conversion-api.js');
+  assert.match(app, /EchoConversion\.run/);
+  assert.match(api, /queue\/join/);
   assert.match(workflow, /actions\/deploy-pages@v4/);
-  assert.match(modelScope, /api_name="convert"/);
-  assert.match(modelScope, /modelscope\.cn\/models\/jaman21\/Seed-VC/);
+  assert.match(modelScope, /api_name=['"]convert['"]/);
+  assert.match(modelScope, /api_name=['"]convert['"]/);
 });

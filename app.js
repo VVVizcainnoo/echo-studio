@@ -1,6 +1,8 @@
 const $ = selector => document.querySelector(selector);
 let ready = false, busy = false, token = 0, blob = null, url = null, refUrl = null, mode = 'original', rendered = null, selectedVoiceWav = null;
 let voiceProfile = {brightness: .45, energy: .55};
+let activeRequest = null;
+let selectionVersion = 0;
 const duration = 22, sourceClip = 'assets/go-beyond-clip.mp3', player = new Audio(), preferences = {runs: 1, vibrato: 1, breath: 0};
 
 document.querySelectorAll('[data-view="brief"], [data-view="flow"], #brief, #flow').forEach(element => element.remove());
@@ -18,7 +20,14 @@ $('.lyrics').textContent = '已从上传歌曲的 00:52–01:14 截取连续人�
 $('#generate').textContent = '生成我的音色版本';
 $('#time').textContent = '00:00 / 00:22';
 $('#result-note').textContent = '试听待生成片段，再录制你的声音。';
-$('.notice').textContent = '音色保存在当前浏览器；点击生成后，所选音色会临时发送到合成服务，完成后由服务删除。请只使用本人或已获授权的声音。';
+$('.notice').textContent = '音色保存在当前浏览器；点击生成后，所选音色会临时发送到合成服务，服务缓存最多保留约 1 小时。请只使用本人或已获授权的声音。';
+document.querySelectorAll('.preference').forEach(element => element.hidden = true);
+$('#sample').hidden = true;
+$('.heading .pill').textContent = '个人音色 · 云端合成';
+$('.agent .section-title > span').textContent = '制作进度';
+$('#cancel').textContent = '停止等待';
+$('#preview-track').title = '试听歌曲片段';
+$('#preview-track').setAttribute('aria-label', '试听歌曲片段');
 
 function view(id) { document.querySelectorAll('.view').forEach(el => el.hidden = el.id !== id); document.querySelectorAll('nav button').forEach(el => el.classList.toggle('active', el.dataset.view === id)); }
 document.querySelectorAll('nav button').forEach(button => button.onclick = () => view(button.dataset.view));
@@ -29,6 +38,7 @@ function stop() { player.pause(); player.currentTime = 0; $('#play').textContent
 function log(message) { const item = document.createElement('li'); item.textContent = message; $('#logs').append(item); }
 function invalidate() {
   stop(); blob = null; rendered = null;
+  if (url) { URL.revokeObjectURL(url); url = null; }
   ['play', 'original', 'processed', 'download', 'retry'].forEach(id => $('#' + id).disabled = true);
   $('#feedback').disabled = true; $('#result-tag').textContent = ready ? '可以生成' : '等待录音'; $('#progress').style.width = '0';
   $('#logs').replaceChildren(); log(ready ? '声音已准备，可以开始生成' : '等待你的声音');
@@ -47,10 +57,14 @@ function profileAudio(buffer) {
   return {energy: Math.max(.25, Math.min(.9, Math.sqrt(sum / count) * 5)), brightness: Math.max(.2, Math.min(.85, crossings / count * 18))};
 }
 async function acceptAudio(source, label) {
+  if (busy) return false;
+  const version = ++selectionVersion;
+  ready = false; selectedVoiceWav = null; invalidate();
   const context = new AudioContext();
   try {
     const data = await context.decodeAudioData(await source.arrayBuffer());
     if (data.duration < 8) throw new Error('short');
+    if (version !== selectionVersion) return false;
     voiceProfile = profileAudio(data); selectedVoiceWav = audioBufferToWav(data); setQuality(data.duration);
     if (refUrl) URL.revokeObjectURL(refUrl); refUrl = URL.createObjectURL(source);
     $('#reference').src = refUrl; $('#reference').hidden = false; $('#voice-state').textContent = '声音已就绪';
@@ -70,10 +84,11 @@ window.acceptReferenceRecording = async (recording, seconds) => {
   catch { setQuality(seconds); $('#voice-state').textContent = '录音太短'; $('#file-info').textContent = '请至少录制 8 秒，让音色特征更完整。'; ready = false; invalidate(); return false; }
 };
 window.addEventListener('echo-voice-selected', async event => {
+  if (busy) return;
   const voice = event.detail;
   try {
-    await acceptAudio(voice.blob, voice.name);
-    $('#consent').checked = true;
+    if (!await acceptAudio(voice.blob, voice.name)) return;
+    $('#consent').checked = false;
     $('#voice-state').textContent = voice.name;
     $('#file-info').textContent = `已选择“${voice.name}” · ${voice.duration.toFixed(1)} 秒 · 来自我的音色`;
   } catch {
@@ -105,50 +120,75 @@ function setMode(next, preview = false) {
   if (preview) player.play().then(() => $('#preview-track').textContent = 'Ⅱ').catch(() => {});
 }
 $('#preview-track').onclick = () => { if (!player.paused && mode === 'original') return stop(); setMode('original', true); };
-function lock(value) { busy = value; document.querySelectorAll('.inputs button,.inputs input').forEach(element => element.disabled = value); $('#cancel').hidden = !value; $('#retry').disabled = value; }
-async function requestConversion(form) {
+const waiting = document.createElement('div');
+waiting.className = 'generation-wait'; waiting.hidden = true;
+waiting.innerHTML = '<span class="generation-spinner" aria-hidden="true"></span><div><strong role="status" aria-live="polite"></strong><p>免费算力资源有限，排队和生成可能需要几分钟；首次启动会更久。请保持页面打开。</p><small></small></div>';
+$('#generate').insertAdjacentElement('afterend', waiting);
+let waitTimer;
+function lock(value) {
+  busy = value; window.echoIsGenerating = value;
+  document.querySelectorAll('.inputs button,.inputs input,.voice-select').forEach(element => element.disabled = value);
+  $('#cancel').hidden = !value; $('#retry').disabled = value;
+  waiting.hidden = !value; clearInterval(waitTimer);
+  if (value) {
+    const started = Date.now();
+    waiting.querySelector('strong').textContent = '正在连接生成服务';
+    const tick = () => {
+      const seconds = Math.floor((Date.now() - started) / 1000);
+      waiting.querySelector('small').textContent = `已等待 ${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
+    };
+    tick(); waitTimer = setInterval(tick, 1000);
+  }
+}
+async function requestConversion(form, run, signal) {
   const apiBase = (window.ECHO_API_BASE || '').replace(/\/$/, '');
-  if (!apiBase) return fetch('/api/convert', {method: 'POST', body: form});
-  const {Client, handle_file} = await import('https://cdn.jsdelivr.net/npm/@gradio/client/+esm');
-  const client = await Client.connect(apiBase);
-  const result = await client.predict('/convert', {
-    reference: handle_file(selectedVoiceWav),
-    pitch: Number($('#pitch').value),
-    consent: true
+  if (!apiBase) {
+    if (location.hostname.endsWith('github.io')) throw new Error('合成服务尚未配置。');
+    const response = await fetch('/api/convert', {method: 'POST', body: form, signal});
+    if (!response.ok) throw new Error((await response.json().catch(()=>({}))).message || '生成失败');
+    return response.blob();
+  }
+  return window.EchoConversion.run(apiBase, form.get('reference'), Number(form.get('pitch')), Number(form.get('mix')), {
+    signal,
+    onProgress(value, message) {
+      if (run !== token) return;
+      $('#progress').style.width = Math.round(Math.max(0, Math.min(1, value)) * 100) + '%';
+      $('#result-tag').textContent = message;
+      waiting.querySelector('strong').textContent = message;
+      if ($('#logs').lastElementChild?.textContent !== message) log(message);
+    }
   });
-  const output = result.data[0];
-  const outputUrl = typeof output === 'string' ? output : output?.url;
-  if (!outputUrl) throw new Error('合成服务没有返回音频');
-  return fetch(outputUrl);
 }
 async function generate() {
   if (busy) return; $('#validation').textContent = '';
   if (!ready || !selectedVoiceWav) { $('#validation').textContent = '请先录制或从“我的音色”选择一个声音。'; return; }
   if (!$('#consent').checked) { $('#validation').textContent = '请确认这是你本人的声音。'; return; }
-  lock(true); const run = ++token; $('#logs').replaceChildren(); $('#result-tag').textContent = '云端生成中'; $('#progress').style.width = '20%';
-  log('已提交歌曲片段与所选音色');
+  invalidate(); lock(true); const run = ++token;
+  activeRequest = new AbortController();
+  const controller = activeRequest;
+  $('#logs').replaceChildren(); $('#result-tag').textContent = '连接服务中';
+  log('免费算力正在制作，首次生成需要准备模型，请保留此页面。');
   try {
     const form = new FormData();
     form.append('reference', selectedVoiceWav, 'reference.wav');
     form.append('pitch', $('#pitch').value);
+    form.append('mix', $('#mix').value);
     form.append('runs', preferences.runs);
     form.append('vibrato', preferences.vibrato);
     form.append('breath', preferences.breath);
     form.append('consent', 'true');
-    log('模型正在提取音色并转换歌声'); $('#progress').style.width = '55%';
-    const response = await requestConversion(form);
-    if (!response.ok) { const error = await response.json().catch(() => ({})); throw new Error(error.message || `生成服务返回 ${response.status}`); }
+    const audio = await requestConversion(form, run, controller.signal);
     if (run !== token) return;
-    blob = await response.blob(); if (url) URL.revokeObjectURL(url); url = URL.createObjectURL(blob); rendered = {pitch: Number($('#pitch').value), ...preferences}; setMode('processed');
+    blob = audio; if (url) URL.revokeObjectURL(url); url = URL.createObjectURL(blob); rendered = {pitch: Number($('#pitch').value), ...preferences}; setMode('processed');
     log('歌声音色转换完成'); $('#progress').style.width = '100%';
     ['play','original','processed','download','retry'].forEach(id => $('#' + id).disabled = false); $('#feedback').disabled = false; $('#thanks').textContent = ''; $('#result-tag').textContent = '预览已完成';
     $('#result-note').textContent = '已使用所选音色完成歌声转换，可与原始片段对比试听。';
-  } catch (error) { $('#result-tag').textContent = '生成失败'; $('#validation').textContent = error.message; log('生成未完成，请检查服务后重试。'); }
-  finally { if (run === token) lock(false); }
+  } catch (error) { if (run !== token) return; $('#result-tag').textContent = '生成未完成'; $('#validation').textContent = error.name === 'AbortError' ? '等待时间过长，请稍后重试。' : error.message; log('生成未完成，可以重试。'); }
+  finally { if (run === token) { lock(false); activeRequest = null; } }
 }
-$('#generate').onclick = generate; $('#retry').onclick = generate; $('#cancel').onclick = () => { token++; lock(false); invalidate(); log('任务已取消。'); };
+$('#generate').onclick = generate; $('#retry').onclick = generate; $('#cancel').onclick = () => { token++; activeRequest?.abort(); activeRequest = null; lock(false); invalidate(); log('已停止等待，服务可能仍在完成当前计算。'); };
 $('#original').onclick = () => setMode('original'); $('#processed').onclick = () => setMode('processed');
 $('#play').onclick = async () => { if (player.paused) { try { await player.play(); $('#play').textContent = 'Ⅱ'; } catch { $('#result-note').textContent = '播放失败，请重新生成或下载试听。'; } } else stop(); };
 player.ontimeupdate = () => $('#time').textContent = '00:' + Math.floor(player.currentTime).toString().padStart(2, '0') + ' / 00:22'; player.onended = stop;
-$('#download').onclick = () => { const link = document.createElement('a'); link.href = url; link.download = `Echo-Go-Beyond-${mode === 'processed' ? '我的版本' : '原始片段'}.wav`; link.click(); };
+$('#download').onclick = () => { const link = document.createElement('a'); link.href = url; link.download = 'Echo-Go-Beyond-我的版本.wav'; link.click(); };
 document.querySelectorAll('[data-feedback]').forEach(button => button.onclick = () => $('#thanks').textContent = '已记录：' + button.dataset.feedback + '（本次会话）');

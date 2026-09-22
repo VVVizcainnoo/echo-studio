@@ -14,9 +14,6 @@
   const libraryScript = document.createElement('script');
   libraryScript.src = 'voice-library.js';
   document.body.append(libraryScript);
-  const runtimeConfig = document.createElement('script');
-  runtimeConfig.src = 'config.js';
-  document.body.append(runtimeConfig);
   const panel = document.createElement('div');
   panel.className = 'record-panel';
   // Lucide microphone icon (ISC license, lucide.dev).

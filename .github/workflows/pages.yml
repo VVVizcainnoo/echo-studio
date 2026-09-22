@@ -26,7 +26,7 @@ jobs:
         run: |
           mkdir dist
           cp index.html style.css experience.css recorder.css voice-library.css dist/
-          cp app.js recorder.js voice-library.js config.js dist/
+          cp app.js recorder.js voice-library.js config.js conversion-api.js dist/
           mkdir dist/assets
           cp assets/go-beyond-clip.mp3 dist/assets/
           touch dist/.nojekyll
@@ -39,4 +39,3 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
-

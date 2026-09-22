@@ -63,6 +63,7 @@
   }
 
   async function selectVoice(voice) {
+    if (window.echoIsGenerating) return;
     localStorage.setItem(selectedKey, voice.id);
     window.dispatchEvent(new CustomEvent('echo-voice-selected', {detail: voice}));
     document.querySelector('[data-view="studio"]').click();
@@ -88,6 +89,7 @@
         else { const objectUrl = URL.createObjectURL(voice.blob); activeAudio = new Audio(objectUrl); activeAudio.play(); event.currentTarget.textContent = 'Ⅱ'; activeAudio.onended = () => { URL.revokeObjectURL(objectUrl); activeAudio = null; event.currentTarget.textContent = '▶'; }; }
       };
       card.querySelector('.voice-select').onclick = () => selectVoice(voice);
+      card.querySelector('.voice-select').disabled = Boolean(window.echoIsGenerating);
       card.querySelector('.voice-delete').onclick = async () => { await remove(voice.id); if (voice.id === localStorage.getItem(selectedKey)) localStorage.removeItem(selectedKey); render(); };
       list.append(card);
     }
